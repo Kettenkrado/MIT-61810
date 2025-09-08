@@ -18,11 +18,14 @@ struct run {
   struct run *next;
 };
 
+// 关于内存的核心结构体 kmem
 struct {
   struct spinlock lock;
   struct run *freelist;
 } kmem;
 
+// 内核初始化时，分配一个自旋锁，并且释放 end 到 PHYSTOP 之间的所有内存页
+// (end 是内核代码和数据段的末尾，即第一个可用的内存地址，PHYSTOP 是物理内存的上限)
 void
 kinit()
 {
@@ -30,6 +33,7 @@ kinit()
   freerange(end, (void*)PHYSTOP);
 }
 
+// 对齐，并且把每一个页面都加入 freelist 
 void
 freerange(void *pa_start, void *pa_end)
 {
@@ -48,14 +52,17 @@ kfree(void *pa)
 {
   struct run *r;
 
+  // 如果并不是一个页面，或者超出范围，panic
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
   // Fill with junk to catch dangling refs.
+  // 1 填充
   memset(pa, 1, PGSIZE);
 
   r = (struct run*)pa;
 
+  // 获取内核内存的锁，并且将这个空闲页头插入空闲链表
   acquire(&kmem.lock);
   r->next = kmem.freelist;
   kmem.freelist = r;
@@ -70,12 +77,14 @@ kalloc(void)
 {
   struct run *r;
 
+  // 获取锁，取出头页面
   acquire(&kmem.lock);
   r = kmem.freelist;
   if(r)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
+  // 注意这里是用 5 填充新的页面
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
