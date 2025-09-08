@@ -1,0 +1,6 @@
+1. usertrap called syscall.
+2. p->trapframe->a7 = 0x7, it represents SYS_exec.
+3. $sstatus = 0x200000022, SPP = 0, so it was transferring from mode 0, namely user mode.
+4. lw      a3,0(zero) # 0 <_entry-0x80000000>, a3 corresponds to the variable num.
+5. scause = 0xd, indicating load page fault, the kernel crashes because address 0 is not mapped to any kernel space.
+6. initcode, pid = 1.
