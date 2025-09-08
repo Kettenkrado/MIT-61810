@@ -1,0 +1,30 @@
+Inspect a user-process page table
+va 0x0 pte 0x21FC985B pa 0x87F26000 perm 0x5B
+va 0x1000 pte 0x21FCC017 pa 0x87F30000 perm 0x17
+va 0x2000 pte 0x21FCBC07 pa 0x87F2F000 perm 0x7
+va 0x3000 pte 0x21FC78D7 pa 0x87F1E000 perm 0xD7
+va 0x4000 pte 0x0 pa 0x0 perm 0x0
+va 0x5000 pte 0x0 pa 0x0 perm 0x0
+va 0x6000 pte 0x0 pa 0x0 perm 0x0
+va 0x7000 pte 0x0 pa 0x0 perm 0x0
+va 0x8000 pte 0x0 pa 0x0 perm 0x0
+va 0x9000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFF6000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFF7000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFF8000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFF9000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFFA000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFFB000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFFC000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFFD000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFFE000 pte 0x21FC40C7 pa 0x87F10000 perm 0xC7
+va 0xFFFFF000 pte 0x2000184B pa 0x80006000 perm 0x4B
+
+This is the output of program pgtbltest.
+va 0x0 pte 0x21FC985B pa 0x87F26000 perm 0x5B, the permission bits translate to 0b01011011, which means accessed, user accessible, executable, non-writable, readable and valid, it stores code/text.
+va 0x1000 pte 0x21FCC017 pa 0x87F30000 perm 0x17, the permission bits translate to 0b00010111, which means user accessible, non-executable, writable, readable and valid, it stores data.
+va 0x2000 pte 0x21FCBC07 pa 0x87F2F000 perm 0x7, the permission bits translate to 0b00000111, which means readable, writable, and valid, but other permissions are all not allowed, indicating user cannot access this page, this is kernel data page.
+va 0x3000 pte 0x21FC78D7 pa 0x87F1E000 perm 0xD7, the permission bits translate to 0b11010111, which means dirty, accessed, not global, user accessible, non-executable, writable, readable, and valid, this might be a modified user data page.
+The following pages are all invalid, they are guard pages under the stack.
+va 0xFFFFE000 pte 0x21FC40C7 pa 0x87F10000 perm 0xC7, the permission bits translate to 0b11000111, which dirty, accessed, writable, readable and valid. It is the trapframe page. It stores user process's register information.
+va 0xFFFFF000 pte 0x2000184B pa 0x80006000 perm 0x4B, the permission bits translate to 0b01001001, which means accessed, executable and valid. It is the trampoline page. It stores the code for k/u mode switch.
