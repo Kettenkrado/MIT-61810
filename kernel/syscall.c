@@ -80,6 +80,7 @@ argstr(int n, char *buf, int max)
 }
 
 // Prototypes for the functions that handle system calls.
+// 将它们声明为外部函数，以便在 syscalls 数组中使用，具体在 sysproc.c 中实现
 extern uint64 sys_fork(void);
 extern uint64 sys_exit(void);
 extern uint64 sys_wait(void);
@@ -104,6 +105,9 @@ extern uint64 sys_close(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
+// C99 标准支持这种“指定索引初始化”的语法
+// 具体语法是 [index] = value 或者 [index] value （等号可选）
+// 可以跳过某些索引，未指定的索引会被初始化为 NULL/0/0.0
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,
@@ -134,6 +138,7 @@ syscall(void)
   int num;
   struct proc *p = myproc();
 
+  // a7 是函数编号
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     // Use num to lookup the system call function for num, call it,
