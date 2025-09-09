@@ -1,5 +1,5 @@
-Inspect a user-process page table
-va 0x0 pte 0x21FC985B pa 0x87F26000 perm 0x5B
+Q1. Inspect a user-process page table
+A1. va 0x0 pte 0x21FC985B pa 0x87F26000 perm 0x5B
 va 0x1000 pte 0x21FCC017 pa 0x87F30000 perm 0x17
 va 0x2000 pte 0x21FCBC07 pa 0x87F2F000 perm 0x7
 va 0x3000 pte 0x21FC78D7 pa 0x87F1E000 perm 0xD7
@@ -28,3 +28,6 @@ va 0x3000 pte 0x21FC78D7 pa 0x87F1E000 perm 0xD7, the permission bits translate 
 The following pages are all invalid, they are guard pages under the stack.
 va 0xFFFFE000 pte 0x21FC40C7 pa 0x87F10000 perm 0xC7, the permission bits translate to 0b11000111, which dirty, accessed, writable, readable and valid. It is the trapframe page. It stores user process's register information.
 va 0xFFFFF000 pte 0x2000184B pa 0x80006000 perm 0x4B, the permission bits translate to 0b01001001, which means accessed, executable and valid. It is the trampoline page. It stores the code for k/u mode switch.
+
+Q2. Which other xv6 system call(s) could be made faster using this shared page? 
+A2. getpid, ugetpid, uptime if we need to. 
