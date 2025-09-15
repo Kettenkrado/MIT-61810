@@ -244,7 +244,9 @@ copyinstr3(char *s)
 // See if the kernel refuses to read/write user memory that the
 // application doesn't have anymore, because it returned it.
 void
-rwsbrk()
+// @note: change this to rwsbrk(char* arg) to solve gcc version compatibility issue
+// rwsbrk()
+rwsbrk(char* arg)
 {
   int fd, n;
   
