@@ -159,6 +159,16 @@ printf(char *fmt, ...)
   return 0;
 }
 
+
+void backtrace() {
+  uint64 fp = r_fp();
+  printf("backtrace:\n");
+  while (fp != PGROUNDDOWN(fp)) {
+    printf("%p\n", (void *) (*(uint64 *) (fp - 8)));
+    fp = *(uint64 *)(fp - 16);
+  }
+}
+
 void
 panic(char *s)
 {
