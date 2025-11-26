@@ -5,6 +5,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h"
+#include "file.h"
 
 struct cpu cpus[NCPU];
 
@@ -124,6 +126,8 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+
+  p->mmap_base = MMAP_BASE;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -295,6 +299,17 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+  np->mmap_base = p->mmap_base;
+
+  // Copy VMAs from parent to child
+  for(int i = 0; i < NVMA; i++){
+    if(p->vmas[i].valid){
+      np->vmas[i] = p->vmas[i];
+      if(np->vmas[i].f){
+        filedup(np->vmas[i].f); // Increment file ref count for child
+      }
+    }
+  }
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -350,6 +365,41 @@ exit(int status)
 
   if(p == initproc)
     panic("init exiting");
+
+  pte_t *pte;
+  for(int i = 0; i < NVMA; i++){
+    if(p->vmas[i].valid){
+      struct vma *v = &p->vmas[i];
+
+      if(v->flags & MAP_SHARED) {
+        for(uint64 a = v->addr; a < v->addr + v->len; a += PGSIZE) {
+          pte = walk(p->pagetable, a, 0);
+          if(pte != 0 && (*pte & PTE_V) && (*pte & PTE_D)) {
+            uint64 file_offset = v->offset + (a - v->addr);
+
+            begin_op();
+            ilock(v->f->ip);
+            uint64 file_size = v->f->ip->size;
+            uint n_to_write = PGSIZE;
+            if(file_offset + PGSIZE > file_size) {
+              n_to_write = file_size - file_offset;
+            }
+            writei(v->f->ip, 1, a, file_offset, n_to_write);
+            iunlock(v->f->ip);
+            end_op();
+          }
+        }
+      }
+
+      lazy_uvmunmap(p->pagetable, v->addr, v->len / PGSIZE, 1);
+
+      if (v->f) {
+        fileclose(v->f);
+      }
+      
+      v->valid = 0;
+    }
+  }
 
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){

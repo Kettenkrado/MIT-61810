@@ -5,6 +5,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h"
+#include "file.h"
 
 struct spinlock tickslock;
 uint ticks;
@@ -15,6 +17,8 @@ extern char trampoline[], uservec[], userret[];
 void kernelvec();
 
 extern int devintr();
+
+static void handle_page_fault(struct proc *p);
 
 void
 trapinit(void)
@@ -65,6 +69,10 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if (r_scause() == 13 || r_scause() == 15) {
+    // page fault for mmap
+    // 13: load page fault, 15: store page fault
+    handle_page_fault(p);
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
@@ -216,3 +224,66 @@ devintr()
   }
 }
 
+static void
+handle_page_fault(struct proc *p)
+{
+  uint64 faulting_addr = r_stval();
+  int is_store = (r_scause() == 15);
+  struct vma *v = 0;
+
+  // 获取该地址对应的 VMA
+  for(int i = 0; i < NVMA; i++){
+    if(p->vmas[i].valid && faulting_addr >= p->vmas[i].addr && 
+       faulting_addr < p->vmas[i].addr + p->vmas[i].len){
+      v = &p->vmas[i];
+      break;
+    }
+  }
+
+  if(v) {
+    // 权限检查
+    if (is_store && !(v->prot & PROT_WRITE)) {
+      printf("usertrap(): segfault (write to read-only) scause 0x%lx pid=%d\n", r_scause(), p->pid);
+      goto killproc;
+    } else if (!is_store && !(v->prot & PROT_READ)) {
+      printf("usertrap(): segfault (read from non-readable) scause 0x%lx pid=%d\n", r_scause(), p->pid);
+      goto killproc;
+    }
+
+    // 分配物理页并映射
+    uint64 va = PGROUNDDOWN(faulting_addr);
+    uint64 pa = (uint64)kalloc();
+    int perm = PTE_U | PTE_V;
+
+    if(pa == 0){
+      printf("handle_page_fault: kalloc failed\n");
+      goto killproc;
+    }
+    memset((void*)pa, 0, PGSIZE);
+
+    if(v->f){
+      ilock(v->f->ip);
+      readi(v->f->ip, 0, pa, v->offset + (va - v->addr), PGSIZE);
+      iunlock(v->f->ip);
+    }
+
+    if(v->prot & PROT_READ) perm |= PTE_R;
+    if(v->prot & PROT_WRITE) perm |= PTE_W;
+    if(mappages(p->pagetable, va, PGSIZE, pa, perm) < 0){
+      kfree((void*)pa);
+      printf("handle_page_fault: mappages failed\n");
+      goto killproc;
+    }
+    goto end;
+  } else {
+    // 不在 VMA 区域 -> Segmentation Fault
+    printf("usertrap(): segfault scause 0x%lx pid=%d\n", r_scause(), p->pid);
+    goto killproc;
+  }
+
+killproc:
+  printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
+  setkilled(p);
+end:
+  return;
+}

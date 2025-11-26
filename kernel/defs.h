@@ -3,11 +3,14 @@ typedef unsigned long size_t;
 typedef long int off_t;
 #endif
 struct buf;
+
 struct context;
 struct file;
 struct inode;
 struct pipe;
 struct proc;
+struct vma;
+
 struct spinlock;
 struct sleeplock;
 struct stat;
@@ -175,6 +178,7 @@ uint64          uvmdealloc(pagetable_t, uint64, uint64);
 int             uvmcopy(pagetable_t, pagetable_t, uint64);
 void            uvmfree(pagetable_t, uint64);
 void            uvmunmap(pagetable_t, uint64, uint64, int);
+void            lazy_uvmunmap(pagetable_t, uint64, uint64, int);
 void            uvmclear(pagetable_t, uint64);
 pte_t *         walk(pagetable_t, uint64, int);
 uint64          walkaddr(pagetable_t, uint64);
